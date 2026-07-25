@@ -146,7 +146,7 @@ export default function MatchPage() {
 
   // Formulaire d'inscription joueur 2
   if (playerNum === '2' && !joined && match.status === 'waiting') {
-    const availableClasses = CLASSES.map(c => c.name).filter(c => !match.player1Classes.includes(c));
+    const availableClasses = CLASSES.map(c => c.name);
 
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
