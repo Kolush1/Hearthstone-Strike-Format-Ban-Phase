@@ -463,6 +463,26 @@ export default function MatchPage() {
             </tbody>
           </table>
         </div>
+        {match.status === 'finished' && Array.isArray(match.matchOrder) && (
+        <div className="mt-8 rounded-xl bg-gray-800 p-6">
+            <h2 className="mb-4 text-xl font-bold text-orange-400">
+            Ordre aléatoire des 5 affrontements
+            </h2>
+            <div className="space-y-3">
+            {match.matchOrder.map((m, index) => (
+                <div
+                key={`${m.row}-${m.col}-${index}`}
+                className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900 px-4 py-3"
+                >
+                <span className="font-semibold text-gray-300">Match {index + 1}</span>
+                <span className="text-white">
+                    {m.player1Class} vs {m.player2Class}
+                </span>
+                </div>
+            ))}
+            </div>
+        </div>
+        )}
       </div>
     </div>
   );

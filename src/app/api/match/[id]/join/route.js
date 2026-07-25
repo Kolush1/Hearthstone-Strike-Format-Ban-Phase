@@ -14,8 +14,7 @@ export async function POST(request, context) {
   const playerA = isPlayer1A ? '1' : '2';
   const playerB = isPlayer1A ? '2' : '1';
 
-  const startsWithA = Math.random() < 0.5;
-  const banOrder = startsWithA ? ['A', 'B', 'A', 'B'] : ['B', 'A', 'B', 'A'];
+  const banOrder = ['A', 'B', 'A', 'B'];
 
   const updated = await updateMatch(id, {
     player2Name,

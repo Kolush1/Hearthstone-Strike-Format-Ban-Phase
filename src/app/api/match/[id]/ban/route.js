@@ -60,10 +60,13 @@ function generateMatchOrder(match, bannedMatchups) {
     [remainingMatchups[i], remainingMatchups[j]] = [remainingMatchups[j], remainingMatchups[i]];
   }
 
+  const rowClasses = match.playerA === '1' ? match.player1Classes : match.player2Classes;
+  const colClasses = match.playerB === '1' ? match.player1Classes : match.player2Classes;
+
   return remainingMatchups.map((m) => ({
     row: m.row,
     col: m.col,
-    player1Class: match.player1Classes[m.row],
-    player2Class: match.player2Classes[m.col],
-  }));
+    player1Class: rowClasses[m.row],
+    player2Class: colClasses[m.col]
+    }));
 }
