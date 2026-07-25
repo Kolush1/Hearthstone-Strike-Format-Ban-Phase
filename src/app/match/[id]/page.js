@@ -42,9 +42,18 @@ export default function MatchPage() {
     }
   }
 
+  const [copied, setCopied] = useState(false);
+
+  function getInviteLink() {
+    if (typeof window === 'undefined') return '';
+    const url = new URL(window.location.href);
+    url.searchParams.set('player', '2');
+    return url.toString();
+  }
+
   async function copyInviteLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(getInviteLink());
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (err) {
@@ -296,8 +305,8 @@ export default function MatchPage() {
                 {copied ? 'Lien copié !' : 'Copier le lien'}
               </button>
 
-              <span className="text-sm text-slate-400">
-                {window?.location?.href || ''}
+              <span className="text-sm text-slate-400 break-all">
+                {inviteLink}
               </span>
             </div>
           </section>
