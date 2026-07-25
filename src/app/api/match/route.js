@@ -30,6 +30,7 @@ export async function POST(request) {
 
   const id = randomUUID();
   const player1Token = randomUUID();
+  const inviteToken = randomUUID();
 
   const match = {
     id,
@@ -40,6 +41,7 @@ export async function POST(request) {
     player2Classes: [],
     player1Token,
     player2Token: null,
+    inviteToken,
     playerA: null,
     playerB: null,
     banOrder: ['A', 'B', 'A', 'B'],

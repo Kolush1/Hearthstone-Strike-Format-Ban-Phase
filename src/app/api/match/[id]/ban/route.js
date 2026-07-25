@@ -26,6 +26,17 @@ export async function POST(request, context) {
     return Response.json({ error: 'Unauthorized player' }, { status: 403 });
   }
 
+  if (
+    typeof row !== 'number' ||
+    typeof col !== 'number' ||
+    row < 0 ||
+    row > 2 ||
+    col < 0 ||
+    col > 2
+  ) {
+    return Response.json({ error: 'Invalid cell' }, { status: 400 });
+  }
+
   const currentLetter = match.banOrder[match.currentBanTurn];
   const playerLetter = match.playerA === actualPlayer ? 'A' : 'B';
 

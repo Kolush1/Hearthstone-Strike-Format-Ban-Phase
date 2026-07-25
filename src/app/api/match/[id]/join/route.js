@@ -7,7 +7,7 @@ function randomBool() {
 
 export async function POST(request, context) {
   const { id } = await context.params;
-  const { player2Name, player2Classes } = await request.json();
+  const { player2Name, player2Classes, inviteToken } = await request.json();
 
   const match = await getMatch(id);
 
@@ -17,6 +17,10 @@ export async function POST(request, context) {
 
   if (match.player2Name || match.status !== 'waiting') {
     return Response.json({ error: 'Match already joined' }, { status: 400 });
+  }
+
+  if (inviteToken !== match.inviteToken) {
+    return Response.json({ error: 'Invalid invitation token' }, { status: 403 });
   }
 
   if (!player2Name || !Array.isArray(player2Classes) || player2Classes.length !== 3) {
@@ -42,5 +46,8 @@ export async function POST(request, context) {
     randomizedAt: Date.now(),
   });
 
-  return Response.json(updated);
+  return Response.json({
+    ...updated,
+    redirectToken: player2Token,
+  });
 }

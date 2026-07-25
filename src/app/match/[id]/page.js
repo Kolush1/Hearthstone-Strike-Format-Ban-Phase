@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 const CLASS_ICONS = {
   'Death Knight': '/images/classes/deathknight.png',
@@ -80,10 +80,12 @@ function ClassBadge({
 
 export default function MatchPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const matchId = params.id;
   const token = searchParams.get('token');
+  const inviteToken = searchParams.get('invite');
 
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,12 +102,13 @@ export default function MatchPage() {
   }, [matchId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !match?.player2Token) return;
+    if (typeof window === 'undefined' || !match?.inviteToken) return;
 
     const url = new URL(window.location.href);
-    url.searchParams.set('token', match.player2Token);
+    url.search = '';
+    url.searchParams.set('invite', match.inviteToken);
     setInviteLink(url.toString());
-  }, [matchId, match?.player2Token]);
+  }, [match?.inviteToken]);
 
   async function fetchMatch() {
     try {
@@ -159,6 +162,7 @@ export default function MatchPage() {
         body: JSON.stringify({
           player2Name,
           player2Classes: selectedClasses,
+          inviteToken,
         }),
       });
 
@@ -169,8 +173,7 @@ export default function MatchPage() {
         return;
       }
 
-      setMatch(data);
-      setError('');
+      router.replace(`/match/${matchId}?token=${data.redirectToken}`);
     } catch (err) {
       setError('Erreur réseau');
     }
@@ -209,9 +212,11 @@ export default function MatchPage() {
       if (prev.includes(className)) {
         return prev.filter((c) => c !== className);
       }
+
       if (prev.length >= 3) {
         return prev;
       }
+
       return [...prev, className];
     });
   }
@@ -335,16 +340,16 @@ export default function MatchPage() {
           </div>
         )}
 
-        {match.status === 'waiting' && !token && (
+        {match.status === 'waiting' && !token && !inviteToken && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-2 text-xl font-semibold">Lien invalide</h2>
             <p className="text-slate-300">
-              Ce match nécessite un lien avec token sécurisé.
+              Ce match nécessite un lien sécurisé valide.
             </p>
           </section>
         )}
 
-        {match.status === 'waiting' && token && token !== match.player1Token && (
+        {match.status === 'waiting' && inviteToken && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-4 text-xl font-semibold">Rejoindre le match</h2>
 
