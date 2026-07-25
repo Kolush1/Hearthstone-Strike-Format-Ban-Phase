@@ -1,41 +1,57 @@
-import { v4 as uuidv4 } from 'uuid';
-import { redis, getMatchKey } from '@/lib/redis';
+import { randomUUID } from 'node:crypto';
 
-export async function POST(request) {
-  const { player1Name, player1Classes } = await request.json();
-  
-  const matchId = uuidv4();
-  const match = {
-    id: matchId,
-    player1Name,
-    player1Classes,
-    player2Name: null,
-    player2Classes: null,
-    status: 'waiting',
-    playerA: null,
-    playerB: null,
-    banOrder: [],
-    currentBanTurn: 0,
-    bannedMatchups: [],
-    matchOrder: null // ← Nouveau : ordre des 5 matchups à jouer
-  };
-  
-  // Stockage dans Redis (expire après 24h)
-  await redis.set(getMatchKey(matchId), match, { ex: 86400 });
-  
-  return Response.json({ matchId });
-}
+const matches = globalThis.__matches ?? new Map();
+globalThis.__matches = matches;
 
 export async function getMatch(id) {
-  return await redis.get(getMatchKey(id));
+  return matches.get(id) || null;
 }
 
 export async function updateMatch(id, updates) {
-  const match = await getMatch(id);
-  if (match) {
-    const updated = { ...match, ...updates };
-    await redis.set(getMatchKey(id), updated, { ex: 86400 });
-    return updated;
+  const match = matches.get(id);
+
+  if (!match) return null;
+
+  const updated = {
+    ...match,
+    ...updates,
+  };
+
+  matches.set(id, updated);
+  return updated;
+}
+
+export async function POST(request) {
+  const { player1Name, player1Classes } = await request.json();
+
+  if (!player1Name || !Array.isArray(player1Classes) || player1Classes.length !== 3) {
+    return Response.json({ error: 'Invalid payload' }, { status: 400 });
   }
-  return null;
+
+  const id = randomUUID();
+  const player1Token = randomUUID();
+  const inviteToken = randomUUID();
+
+  const match = {
+    id,
+    status: 'waiting',
+    player1Name,
+    player1Classes,
+    player2Name: null,
+    player2Classes: [],
+    player1Token,
+    player2Token: null,
+    inviteToken,
+    playerA: null,
+    playerB: null,
+    banOrder: ['A', 'B', 'B', 'A'],
+    currentBanTurn: 0,
+    bannedMatchups: [],
+    matchOrder: [],
+    createdAt: Date.now(),
+  };
+
+  matches.set(id, match);
+
+  return Response.json(match);
 }
