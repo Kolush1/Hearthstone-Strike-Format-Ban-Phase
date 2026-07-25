@@ -1,9 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { getMatch, updateMatch } from '../../route';
 
 function randomBool() {
-  const buf = new Uint32Array(1);
-  crypto.getRandomValues(buf);
-  return (buf[0] & 1) === 0;
+  return Math.random() < 0.5;
 }
 
 export async function POST(request, context) {
@@ -20,19 +19,23 @@ export async function POST(request, context) {
     return Response.json({ error: 'Match already joined' }, { status: 400 });
   }
 
+  if (!player2Name || !Array.isArray(player2Classes) || player2Classes.length !== 3) {
+    return Response.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+
   const isPlayer1A = randomBool();
   const playerA = isPlayer1A ? '1' : '2';
   const playerB = isPlayer1A ? '2' : '1';
-
-  const banOrder = ['A', 'B', 'A', 'B'];
+  const player2Token = randomUUID();
 
   const updated = await updateMatch(id, {
     player2Name,
     player2Classes,
+    player2Token,
     status: 'banning',
     playerA,
     playerB,
-    banOrder,
+    banOrder: ['A', 'B', 'A', 'B'],
     currentBanTurn: 0,
     bannedMatchups: [],
     matchOrder: [],

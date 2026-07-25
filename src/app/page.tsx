@@ -95,7 +95,7 @@ export default function HomePage() {
       }
 
       const data = await res.json();
-      router.push(`/match/${data.matchId}?player=1`);
+      router.push(`/match/${data.id}?token=${data.player1Token}`);
     } catch {
       setError('Erreur réseau. Réessaie.');
       setLoading(false);

@@ -83,7 +83,7 @@ export default function MatchPage() {
   const searchParams = useSearchParams();
 
   const matchId = params.id;
-  const playerNum = searchParams.get('player');
+  const token = searchParams.get('token');
 
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,12 +100,12 @@ export default function MatchPage() {
   }, [matchId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !match?.player2Token) return;
 
     const url = new URL(window.location.href);
-    url.searchParams.set('player', '2');
+    url.searchParams.set('token', match.player2Token);
     setInviteLink(url.toString());
-  }, [matchId]);
+  }, [matchId, match?.player2Token]);
 
   async function fetchMatch() {
     try {
@@ -184,7 +184,7 @@ export default function MatchPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          player: playerNum,
+          token,
           row,
           col,
         }),
@@ -216,6 +216,13 @@ export default function MatchPage() {
     });
   }
 
+  function getPlayerFromToken() {
+    if (!match || !token) return null;
+    if (token === match.player1Token) return '1';
+    if (token === match.player2Token) return '2';
+    return null;
+  }
+
   function getCurrentTurnLetter() {
     if (!match?.banOrder || match.currentBanTurn == null) return null;
     return match.banOrder[match.currentBanTurn] || null;
@@ -230,8 +237,9 @@ export default function MatchPage() {
 
   function isMyTurn() {
     if (!match || match.status !== 'banning') return false;
+    const actualPlayer = getPlayerFromToken();
     const turnLetter = getCurrentTurnLetter();
-    const myLetter = getPlayerLetter(playerNum);
+    const myLetter = getPlayerLetter(actualPlayer);
     return turnLetter && myLetter && turnLetter === myLetter;
   }
 
@@ -327,7 +335,16 @@ export default function MatchPage() {
           </div>
         )}
 
-        {match.status === 'waiting' && playerNum === '2' && (
+        {match.status === 'waiting' && !token && (
+          <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
+            <h2 className="mb-2 text-xl font-semibold">Lien invalide</h2>
+            <p className="text-slate-300">
+              Ce match nécessite un lien avec token sécurisé.
+            </p>
+          </section>
+        )}
+
+        {match.status === 'waiting' && token && token !== match.player1Token && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-4 text-xl font-semibold">Rejoindre le match</h2>
 
@@ -372,7 +389,7 @@ export default function MatchPage() {
           </section>
         )}
 
-        {match.status === 'waiting' && playerNum !== '2' && (
+        {match.status === 'waiting' && token === match.player1Token && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-2 text-xl font-semibold">En attente du joueur 2</h2>
             <p className="mb-4 text-slate-300">
@@ -478,11 +495,7 @@ export default function MatchPage() {
                     {colClasses.map((className, colIndex) => (
                       <th key={colIndex} className="min-w-[150px]">
                         <div className="rounded-xl border border-slate-600 bg-slate-900 p-2">
-                          <ClassBadge
-                            classNameValue={className}
-                            compact
-                            centered
-                          />
+                          <ClassBadge classNameValue={className} compact centered />
                         </div>
                       </th>
                     ))}
@@ -494,10 +507,7 @@ export default function MatchPage() {
                     <tr key={rowIndex}>
                       <th className="min-w-[150px]">
                         <div className="rounded-xl border border-slate-600 bg-slate-900 p-2">
-                          <ClassBadge
-                            classNameValue={rowClass}
-                            compact
-                          />
+                          <ClassBadge classNameValue={rowClass} compact />
                         </div>
                       </th>
 
