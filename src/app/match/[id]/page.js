@@ -5,17 +5,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 
 const CLASS_ICONS = {
-  'Death Knight': '/classes/deathknight.png',
-  'Demon Hunter': '/classes/demonhunter.png',
-  Druid: '/classes/druid.png',
-  Hunter: '/classes/hunter.png',
-  Mage: '/classes/mage.png',
-  Paladin: '/classes/paladin.png',
-  Priest: '/classes/priest.png',
-  Rogue: '/classes/rogue.png',
-  Shaman: '/classes/shaman.png',
-  Warlock: '/classes/warlock.png',
-  Warrior: '/classes/warrior.png',
+  'Death Knight': '/images/classes/deathknight.png',
+  'Demon Hunter': '/images/classes/demonhunter.png',
+  Druid: '/images/classes/druid.png',
+  Hunter: '/images/classes/hunter.png',
+  Mage: '/images/classes/mage.png',
+  Paladin: '/images/classes/paladin.png',
+  Priest: '/images/classes/priest.png',
+  Rogue: '/images/classes/rogue.png',
+  Shaman: '/images/classes/shaman.png',
+  Warlock: '/images/classes/warlock.png',
+  Warrior: '/images/classes/warrior.png',
 };
 
 function ClassBadge({
