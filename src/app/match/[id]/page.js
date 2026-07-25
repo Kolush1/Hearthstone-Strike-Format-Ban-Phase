@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 
 export default function MatchPage() {
@@ -15,12 +15,21 @@ export default function MatchPage() {
   const [error, setError] = useState('');
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
 
   useEffect(() => {
     if (!matchId) return;
     fetchMatch();
     const interval = setInterval(fetchMatch, 2000);
     return () => clearInterval(interval);
+  }, [matchId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('player', '2');
+    setInviteLink(url.toString());
   }, [matchId]);
 
   async function fetchMatch() {
@@ -42,18 +51,14 @@ export default function MatchPage() {
     }
   }
 
-  const [copied, setCopied] = useState(false);
-
-  function getInviteLink() {
-    if (typeof window === 'undefined') return '';
-    const url = new URL(window.location.href);
-    url.searchParams.set('player', '2');
-    return url.toString();
-  }
-
   async function copyInviteLink() {
     try {
-      await navigator.clipboard.writeText(getInviteLink());
+      if (!inviteLink) {
+        setError('Lien d’invitation indisponible');
+        return;
+      }
+
+      await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (err) {
@@ -188,6 +193,27 @@ export default function MatchPage() {
     'Warrior',
   ];
 
+  const rowPlayerName =
+    match?.playerA === '1' ? match?.player1Name : match?.player2Name;
+
+  const colPlayerName =
+    match?.playerB === '1' ? match?.player1Name : match?.player2Name;
+
+  const rowClasses =
+    match?.playerA === '1' ? match?.player1Classes || [] : match?.player2Classes || [];
+
+  const colClasses =
+    match?.playerB === '1' ? match?.player1Classes || [] : match?.player2Classes || [];
+
+  const finishedMatchups = useMemo(() => {
+    return (match?.matchOrder || []).map((m, index) => ({
+      ...m,
+      displayAClass: m.playerAClass || rowClasses[m.row] || 'Classe inconnue',
+      displayBClass: m.playerBClass || colClasses[m.col] || 'Classe inconnue',
+      displayOrder: m.order || index + 1,
+    }));
+  }, [match?.matchOrder, rowClasses, colClasses]);
+
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-900 px-4 py-10 text-white">
@@ -213,18 +239,6 @@ export default function MatchPage() {
       </main>
     );
   }
-
-  const rowPlayerName =
-    match.playerA === '1' ? match.player1Name : match.player2Name;
-
-  const colPlayerName =
-    match.playerB === '1' ? match.player1Name : match.player2Name;
-
-  const rowClasses =
-    match.playerA === '1' ? match.player1Classes || [] : match.player2Classes || [];
-
-  const colClasses =
-    match.playerB === '1' ? match.player1Classes || [] : match.player2Classes || [];
 
   return (
     <main className="min-h-screen bg-slate-900 px-4 py-8 text-white">
@@ -305,9 +319,11 @@ export default function MatchPage() {
                 {copied ? 'Lien copié !' : 'Copier le lien'}
               </button>
 
-              <span className="text-sm text-slate-400 break-all">
-                {inviteLink}
-              </span>
+              {inviteLink && (
+                <span className="break-all text-sm text-slate-400">
+                  {inviteLink}
+                </span>
+              )}
             </div>
           </section>
         )}
@@ -474,20 +490,21 @@ export default function MatchPage() {
             {match.status === 'finished' && (
               <section className="rounded-2xl border border-slate-700 bg-slate-800 p-5">
                 <h2 className="mb-4 text-2xl font-bold text-orange-400">
-                  Ordre aléatoire des {match.matchOrder?.length || 0} affrontements
+                  Ordre aléatoire des {finishedMatchups.length} affrontements
                 </h2>
 
                 <div className="space-y-3">
-                  {(match.matchOrder || []).map((m, index) => (
+                  {finishedMatchups.map((m, index) => (
                     <div
                       key={`${m.row}-${m.col}-${index}`}
                       className="rounded-xl border border-slate-600 bg-slate-900 px-4 py-4"
                     >
                       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="font-bold text-slate-100">Match {index + 1}</div>
+                        <div className="font-bold text-slate-100">
+                          Match {m.displayOrder}
+                        </div>
                         <div className="text-slate-200">
-                          {(m.playerAClass || rowClasses[m.row] || 'Classe inconnue')} vs{' '}
-                          {(m.playerBClass || colClasses[m.col] || 'Classe inconnue')}
+                          {m.displayAClass} vs {m.displayBClass}
                         </div>
                       </div>
                     </div>
