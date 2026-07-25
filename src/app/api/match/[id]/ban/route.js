@@ -1,8 +1,37 @@
 import { getMatch, updateMatch } from '../../route';
 
+function secureRandomInt(maxExclusive) {
+  if (!Number.isInteger(maxExclusive) || maxExclusive <= 0) {
+    throw new Error('maxExclusive must be a positive integer');
+  }
+
+  const maxUint32 = 0x100000000;
+  const limit = maxUint32 - (maxUint32 % maxExclusive);
+  const buf = new Uint32Array(1);
+
+  while (true) {
+    crypto.getRandomValues(buf);
+    const value = buf[0];
+    if (value < limit) {
+      return value % maxExclusive;
+    }
+  }
+}
+
+function secureShuffle(array) {
+  const arr = [...array];
+
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = secureRandomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  return arr;
+}
+
 export async function POST(request, context) {
   const { id } = await context.params;
-  const { token, row, col } = await request.json();
+  const { player, row, col } = await request.json();
 
   const match = await getMatch(id);
 
@@ -14,31 +43,8 @@ export async function POST(request, context) {
     return Response.json({ error: 'Match is not in banning phase' }, { status: 400 });
   }
 
-  let actualPlayer = null;
-
-  if (token && token === match.player1Token) {
-    actualPlayer = '1';
-  } else if (token && token === match.player2Token) {
-    actualPlayer = '2';
-  }
-
-  if (!actualPlayer) {
-    return Response.json({ error: 'Unauthorized player' }, { status: 403 });
-  }
-
-  if (
-    typeof row !== 'number' ||
-    typeof col !== 'number' ||
-    row < 0 ||
-    row > 2 ||
-    col < 0 ||
-    col > 2
-  ) {
-    return Response.json({ error: 'Invalid cell' }, { status: 400 });
-  }
-
   const currentLetter = match.banOrder[match.currentBanTurn];
-  const playerLetter = match.playerA === actualPlayer ? 'A' : 'B';
+  const playerLetter = match.playerA === player ? 'A' : 'B';
 
   if (currentLetter !== playerLetter) {
     return Response.json({ error: 'Not your turn' }, { status: 403 });
@@ -52,7 +58,7 @@ export async function POST(request, context) {
     return Response.json({ error: 'Already banned' }, { status: 400 });
   }
 
-  const newBans = [...(match.bannedMatchups || []), { row, col, byPlayer: actualPlayer }];
+  const newBans = [...(match.bannedMatchups || []), { row, col, byPlayer: player }];
   const newTurn = match.currentBanTurn + 1;
 
   const updates = {
@@ -83,21 +89,18 @@ function generateMatchOrder(match, bannedMatchups) {
     (m1) => !bannedMatchups.some((m2) => m1.row === m2.row && m1.col === m2.col)
   );
 
-  for (let i = remainingMatchups.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [remainingMatchups[i], remainingMatchups[j]] = [remainingMatchups[j], remainingMatchups[i]];
-  }
+  const shuffled = secureShuffle(remainingMatchups);
 
   const rowClasses =
     match.playerA === '1' ? match.player1Classes : match.player2Classes;
   const colClasses =
     match.playerB === '1' ? match.player1Classes : match.player2Classes;
 
-  return remainingMatchups.map((m, index) => ({
-    row: m.row,
-    col: m.col,
-    order: index + 1,
-    playerAClass: rowClasses[m.row],
-    playerBClass: colClasses[m.col],
+  return shuffled.map((m, index) => ({
+      row: m.row,
+      col: m.col,
+      order: index + 1,
+      playerAClass: rowClasses[m.row],
+      playerBClass: colClasses[m.col],
   }));
 }

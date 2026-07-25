@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 const CLASS_ICONS = {
   'Death Knight': '/images/classes/deathknight.png',
@@ -80,12 +80,10 @@ function ClassBadge({
 
 export default function MatchPage() {
   const params = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const matchId = params.id;
-  const token = searchParams.get('token');
-  const inviteToken = searchParams.get('invite');
+  const playerNum = searchParams.get('player');
 
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,13 +100,12 @@ export default function MatchPage() {
   }, [matchId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !match?.inviteToken) return;
+    if (typeof window === 'undefined') return;
 
     const url = new URL(window.location.href);
-    url.search = '';
-    url.searchParams.set('invite', match.inviteToken);
+    url.searchParams.set('player', '2');
     setInviteLink(url.toString());
-  }, [match?.inviteToken]);
+  }, [matchId]);
 
   async function fetchMatch() {
     try {
@@ -162,7 +159,6 @@ export default function MatchPage() {
         body: JSON.stringify({
           player2Name,
           player2Classes: selectedClasses,
-          inviteToken,
         }),
       });
 
@@ -173,7 +169,8 @@ export default function MatchPage() {
         return;
       }
 
-      router.replace(`/match/${matchId}?token=${data.redirectToken}`);
+      setMatch(data);
+      setError('');
     } catch (err) {
       setError('Erreur réseau');
     }
@@ -187,7 +184,7 @@ export default function MatchPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token,
+          player: playerNum,
           row,
           col,
         }),
@@ -212,20 +209,11 @@ export default function MatchPage() {
       if (prev.includes(className)) {
         return prev.filter((c) => c !== className);
       }
-
       if (prev.length >= 3) {
         return prev;
       }
-
       return [...prev, className];
     });
-  }
-
-  function getPlayerFromToken() {
-    if (!match || !token) return null;
-    if (token === match.player1Token) return '1';
-    if (token === match.player2Token) return '2';
-    return null;
   }
 
   function getCurrentTurnLetter() {
@@ -242,9 +230,8 @@ export default function MatchPage() {
 
   function isMyTurn() {
     if (!match || match.status !== 'banning') return false;
-    const actualPlayer = getPlayerFromToken();
     const turnLetter = getCurrentTurnLetter();
-    const myLetter = getPlayerLetter(actualPlayer);
+    const myLetter = getPlayerLetter(playerNum);
     return turnLetter && myLetter && turnLetter === myLetter;
   }
 
@@ -340,16 +327,7 @@ export default function MatchPage() {
           </div>
         )}
 
-        {match.status === 'waiting' && !token && !inviteToken && (
-          <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
-            <h2 className="mb-2 text-xl font-semibold">Lien invalide</h2>
-            <p className="text-slate-300">
-              Ce match nécessite un lien sécurisé valide.
-            </p>
-          </section>
-        )}
-
-        {match.status === 'waiting' && inviteToken && (
+        {match.status === 'waiting' && playerNum === '2' && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-4 text-xl font-semibold">Rejoindre le match</h2>
 
@@ -394,7 +372,7 @@ export default function MatchPage() {
           </section>
         )}
 
-        {match.status === 'waiting' && token === match.player1Token && (
+        {match.status === 'waiting' && playerNum !== '2' && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-2 text-xl font-semibold">En attente du joueur 2</h2>
             <p className="mb-4 text-slate-300">
@@ -500,7 +478,11 @@ export default function MatchPage() {
                     {colClasses.map((className, colIndex) => (
                       <th key={colIndex} className="min-w-[150px]">
                         <div className="rounded-xl border border-slate-600 bg-slate-900 p-2">
-                          <ClassBadge classNameValue={className} compact centered />
+                          <ClassBadge
+                            classNameValue={className}
+                            compact
+                            centered
+                          />
                         </div>
                       </th>
                     ))}
@@ -512,7 +494,10 @@ export default function MatchPage() {
                     <tr key={rowIndex}>
                       <th className="min-w-[150px]">
                         <div className="rounded-xl border border-slate-600 bg-slate-900 p-2">
-                          <ClassBadge classNameValue={rowClass} compact />
+                          <ClassBadge
+                            classNameValue={rowClass}
+                            compact
+                          />
                         </div>
                       </th>
 
