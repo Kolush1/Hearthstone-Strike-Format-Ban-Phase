@@ -97,10 +97,10 @@ function generateMatchOrder(match, bannedMatchups) {
     match.playerB === '1' ? match.player1Classes : match.player2Classes;
 
   return shuffled.map((m, index) => ({
-    row: m.row,
-    col: m.col,
-    order: index + 1,
-    playerAClass: rowClasses[m.row],
-    playerBClass: colClasses[m.col],
+      row: m.row,
+      col: m.col,
+      order: index + 1,
+      playerAClass: rowClasses[m.row],
+      playerBClass: colClasses[m.col],
   }));
 }

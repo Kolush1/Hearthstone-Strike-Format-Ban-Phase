@@ -1,490 +1,469 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-
-const CLASSES = [
-  { id: 'demonhunter', name: 'Demon Hunter' },
-  { id: 'druid', name: 'Druid' },
-  { id: 'hunter', name: 'Hunter' },
-  { id: 'mage', name: 'Mage' },
-  { id: 'paladin', name: 'Paladin' },
-  { id: 'priest', name: 'Priest' },
-  { id: 'rogue', name: 'Rogue' },
-  { id: 'shaman', name: 'Shaman' },
-  { id: 'warlock', name: 'Warlock' },
-  { id: 'warrior', name: 'Warrior' },
-  { id: 'deathknight', name: 'Death Knight' },
-];
-
-const getClassId = (name) => {
-  const found = CLASSES.find((c) => c.name === name);
-  return found ? found.id : String(name || '').toLowerCase().replace(/\s+/g, '');
-};
-
-function ClassIcon({ name, size = 48 }) {
-  const classId = getClassId(name);
-  const [imgError, setImgError] = useState(false);
-
-  return (
-    <div
-      className="relative overflow-hidden rounded-full bg-gray-700"
-      style={{ width: size, height: size }}
-    >
-      {!imgError ? (
-        <Image
-          src={`/images/classes/${classId}.png`}
-          alt={name}
-          fill
-          className="object-contain"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
-          {String(name || '').substring(0, 2).toUpperCase()}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function MatchPage() {
   const params = useParams();
   const searchParams = useSearchParams();
 
-  const id = params?.id;
+  const matchId = params.id;
   const playerNum = searchParams.get('player');
 
   const [match, setMatch] = useState(null);
-  const [playerName, setPlayerName] = useState('');
-  const [playerClasses, setPlayerClasses] = useState([]);
-  const [joined, setJoined] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [shareUrl, setShareUrl] = useState('');
-
-  const availableClasses = useMemo(() => CLASSES.map((c) => c.name), []);
+  const [error, setError] = useState('');
+  const [selectedClasses, setSelectedClasses] = useState([]);
 
   useEffect(() => {
-    if (id) {
-      setShareUrl(`${window.location.origin}/match/${id}?player=2`);
-    }
-  }, [id]);
+    if (!matchId) return;
+    fetchMatch();
+    const interval = setInterval(fetchMatch, 2000);
+    return () => clearInterval(interval);
+  }, [matchId]);
 
-  const fetchMatch = async (showLoader = false) => {
-    if (!id) return;
-
+  async function fetchMatch() {
     try {
-      if (showLoader) setLoading(true);
-      setError('');
-
-      const res = await fetch(`/api/match/${id}`, { cache: 'no-store' });
+      const res = await fetch(`/api/match/${matchId}`, { cache: 'no-store' });
+      const data = await res.json();
 
       if (!res.ok) {
-        let message = 'Impossible de charger le match.';
-        try {
-          const err = await res.json();
-          if (err?.error) message = err.error;
-        } catch {}
-        throw new Error(message);
+        setError(data.error || 'Erreur lors du chargement du match');
+        setLoading(false);
+        return;
       }
 
-      const data = await res.json();
       setMatch(data);
-
-      if (playerNum === '1') setJoined(true);
-      if (playerNum === '2' && data.player2Name) setJoined(true);
+      setLoading(false);
     } catch (err) {
-      setError(err.message || 'Une erreur est survenue.');
-    } finally {
+      setError('Erreur réseau');
       setLoading(false);
     }
-  };
+  }
 
-  useEffect(() => {
-    fetchMatch(true);
-  }, [id, playerNum]);
+  async function joinMatch(e) {
+    e.preventDefault();
 
-  useEffect(() => {
-    if (!match || match.status === 'finished') return;
+    const formData = new FormData(e.currentTarget);
+    const player2Name = formData.get('player2Name');
 
-    const interval = setInterval(() => {
-      fetchMatch(false);
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [match?.status, id, playerNum]);
-
-  const toggleClass = (cls) => {
-    setError('');
-
-    if (playerClasses.includes(cls)) {
-      setPlayerClasses(playerClasses.filter((c) => c !== cls));
-      return;
-    }
-
-    if (playerClasses.length >= 3) return;
-    setPlayerClasses([...playerClasses, cls]);
-  };
-
-  const joinMatch = async () => {
-    if (playerClasses.length !== 3 || !playerName.trim()) {
-      setError('Entre ton pseudo et choisis exactement 3 classes.');
+    if (!player2Name || selectedClasses.length !== 3) {
+      setError('Entre un pseudo et choisis exactement 3 classes');
       return;
     }
 
     try {
-      setError('');
-
-      const res = await fetch(`/api/match/${id}/join`, {
+      const res = await fetch(`/api/match/${matchId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          player2Name: playerName.trim(),
-          player2Classes: playerClasses,
+          player2Name,
+          player2Classes: selectedClasses,
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.error || 'Impossible de rejoindre le match.');
+        setError(data.error || 'Impossible de rejoindre le match');
+        return;
       }
 
-      setJoined(true);
-      await fetchMatch(false);
-    } catch (err) {
-      setError(err.message || 'Une erreur est survenue.');
-    }
-  };
-
-  const banMatchup = async (row, col) => {
-    try {
+      setMatch(data);
       setError('');
+    } catch (err) {
+      setError('Erreur réseau');
+    }
+  }
 
-      const res = await fetch(`/api/match/${id}/ban`, {
+  async function banMatchup(row, col) {
+    if (!match || !canBanCell(row, col)) return;
+
+    try {
+      const res = await fetch(`/api/match/${matchId}/ban`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: playerNum, row, col }),
+        body: JSON.stringify({
+          player: playerNum,
+          row,
+          col,
+        }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.error || 'Ban impossible.');
+        setError(data.error || 'Ban impossible');
+        return;
       }
 
-      await fetchMatch(false);
+      setMatch(data);
+      setError('');
     } catch (err) {
-      setError(err.message || 'Une erreur est survenue.');
+      setError('Erreur réseau');
     }
-  };
+  }
 
-  const getMyLetter = () => {
-    if (!match) return '?';
-    return match.playerA === playerNum ? 'A' : 'B';
-  };
+  function toggleClass(className) {
+    setSelectedClasses((prev) => {
+      if (prev.includes(className)) {
+        return prev.filter((c) => c !== className);
+      }
+      if (prev.length >= 3) {
+        return prev;
+      }
+      return [...prev, className];
+    });
+  }
 
-  const getOpponentName = () => {
-    if (!match) return 'l’adversaire';
-    return playerNum === '1' ? match.player2Name || 'le joueur 2' : match.player1Name || 'le joueur 1';
-  };
+  function getCurrentTurnLetter() {
+    if (!match?.banOrder || match.currentBanTurn == null) return null;
+    return match.banOrder[match.currentBanTurn] || null;
+  }
 
-  const isMyTurn = () => {
+  function getPlayerLetter(num) {
+    if (!match) return null;
+    if (match.playerA === String(num)) return 'A';
+    if (match.playerB === String(num)) return 'B';
+    return null;
+  }
+
+  function isMyTurn() {
     if (!match || match.status !== 'banning') return false;
-    const currentPlayer = match.banOrder?.[match.currentBanTurn];
-    return currentPlayer === getMyLetter();
-  };
+    const turnLetter = getCurrentTurnLetter();
+    const myLetter = getPlayerLetter(playerNum);
+    return turnLetter && myLetter && turnLetter === myLetter;
+  }
 
-  const isBannedCell = (row, col) => {
-    return Array.isArray(match?.bannedMatchups)
-      ? match.bannedMatchups.some((m) => m.row === row && m.col === col)
-      : false;
-  };
+  function isCellBanned(row, col) {
+    return (match?.bannedMatchups || []).some((b) => b.row === row && b.col === col);
+  }
 
-  const canBanCell = (row, col) => {
-    if (!match || match.status !== 'banning') return false;
-    if (!isMyTurn()) return false;
-    if (isBannedCell(row, col)) return false;
-    return true;
-  };
+  function canBanCell(row, col) {
+    return isMyTurn() && !isCellBanned(row, col);
+  }
+
+  function getBanOwner(row, col) {
+    const ban = (match?.bannedMatchups || []).find((b) => b.row === row && b.col === col);
+    if (!ban) return null;
+    return match.playerA === ban.byPlayer ? 'A' : 'B';
+  }
+
+  function getMatchOrderIndex(row, col) {
+    const index = (match?.matchOrder || []).findIndex((m) => m.row === row && m.col === col);
+    return index >= 0 ? index + 1 : null;
+  }
+
+  const allClasses = [
+    'Death Knight',
+    'Demon Hunter',
+    'Druid',
+    'Hunter',
+    'Mage',
+    'Paladin',
+    'Priest',
+    'Rogue',
+    'Shaman',
+    'Warlock',
+    'Warrior',
+  ];
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-8 text-center">
-        Chargement...
-      </div>
+      <main className="min-h-screen bg-slate-900 px-4 py-10 text-white">
+        <div className="mx-auto max-w-5xl">Chargement...</div>
+      </main>
     );
   }
 
   if (error && !match) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-8">
-        <div className="mx-auto max-w-2xl rounded-lg border border-red-500/40 bg-red-950/30 p-6 text-center">
-          <h1 className="mb-3 text-2xl font-bold text-red-400">Erreur</h1>
-          <p>{error}</p>
+      <main className="min-h-screen bg-slate-900 px-4 py-10 text-white">
+        <div className="mx-auto max-w-5xl rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">
+          {error}
         </div>
-      </div>
+      </main>
     );
   }
 
   if (!match) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-8 text-center">
-        Match introuvable.
-      </div>
+      <main className="min-h-screen bg-slate-900 px-4 py-10 text-white">
+        <div className="mx-auto max-w-5xl">Match introuvable.</div>
+      </main>
     );
   }
 
-  if (playerNum === '1' && match.status === 'waiting') {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="mb-4 text-2xl font-bold">En attente du joueur 2...</h2>
+  const rowPlayerName =
+    match.playerA === '1' ? match.player1Name : match.player2Name;
 
-          <div className="mb-6 flex justify-center gap-4">
-            {match.player1Classes?.map((cls, i) => (
-              <div key={i} className="flex flex-col items-center">
-                <ClassIcon name={cls} size={64} />
-                <span className="mt-2 text-xs">{cls}</span>
-              </div>
-            ))}
-          </div>
+  const colPlayerName =
+    match.playerB === '1' ? match.player1Name : match.player2Name;
 
-          <p className="mb-4">Partage ce lien à ton adversaire :</p>
+  const rowClasses =
+    match.playerA === '1' ? match.player1Classes || [] : match.player2Classes || [];
 
-          <div className="mb-6 break-all rounded-lg bg-gray-800 p-4 text-orange-400">
-            {shareUrl || 'Préparation du lien...'}
-          </div>
-
-          <button
-            onClick={() => shareUrl && navigator.clipboard.writeText(shareUrl)}
-            className="rounded bg-blue-600 px-4 py-2 hover:bg-blue-500"
-          >
-            Copier le lien
-          </button>
-
-          {error && <p className="mt-4 text-red-400">{error}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  if (playerNum === '2' && !joined && match.status === 'waiting') {
-    return (
-      <div className="min-h-screen bg-gray-900 p-8 text-white">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="mb-4 text-center text-2xl font-bold">Rejoindre le match</h2>
-
-          <div className="mb-6 flex justify-center gap-4">
-            <p className="mr-4 self-center text-gray-400">{match.player1Name} joue :</p>
-            {match.player1Classes?.map((cls, i) => (
-              <div key={i} className="flex flex-col items-center opacity-50">
-                <ClassIcon name={cls} size={48} />
-                <span className="mt-1 text-xs">{cls}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mb-6 rounded-lg bg-gray-800 p-6">
-            <label className="mb-2 block text-sm font-medium">Ton pseudo :</label>
-            <input
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              className="w-full rounded border border-gray-600 bg-gray-700 px-4 py-2"
-              placeholder="Entre ton pseudo"
-            />
-          </div>
-
-          <div className="rounded-lg bg-gray-800 p-6">
-            <h3 className="mb-4 text-xl font-semibold">Choisis tes 3 classes :</h3>
-
-            <div className="grid grid-cols-3 gap-4 md:grid-cols-4">
-              {availableClasses.map((cls) => (
-                <button
-                  key={cls}
-                  onClick={() => toggleClass(cls)}
-                  className={`flex flex-col items-center rounded-lg border-2 p-4 transition-all ${
-                    playerClasses.includes(cls)
-                      ? 'border-orange-400 bg-orange-600'
-                      : 'border-gray-600 bg-gray-700 hover:border-gray-500'
-                  }`}
-                >
-                  <ClassIcon name={cls} size={48} />
-                  <span className="mt-2 text-center text-xs">{cls}</span>
-                </button>
-              ))}
-            </div>
-
-            <p className="mt-4 text-center text-sm text-gray-400">
-              {playerClasses.length}/3 classes sélectionnées
-            </p>
-
-            {error && <p className="mt-4 text-center text-red-400">{error}</p>}
-
-            <div className="mt-6 text-center">
-              <button
-                onClick={joinMatch}
-                disabled={playerClasses.length !== 3 || !playerName.trim()}
-                className="rounded-lg bg-green-600 px-8 py-3 font-semibold hover:bg-green-500 disabled:bg-gray-600"
-              >
-                Rejoindre le match
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const rowClasses = match.player1Classes || [];
-  const colClasses = match.player2Classes || [];
+  const colClasses =
+    match.playerB === '1' ? match.player1Classes || [] : match.player2Classes || [];
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 text-white">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-orange-500">Phase de bannissement</h1>
-          <p className="mt-2 text-gray-400">
-            Tu es le joueur <span className="text-xl font-bold text-yellow-400">{getMyLetter()}</span>
-          </p>
-
-          <div className="mt-4 flex items-center justify-center gap-8">
-            <div className="flex flex-col items-center">
-              <span className="text-sm text-gray-400">{match.player1Name}</span>
-              <div className="mt-1 flex gap-2">
-                {rowClasses.map((cls, i) => (
-                  <ClassIcon key={i} name={cls} size={32} />
-                ))}
-              </div>
-            </div>
-
-            <span className="text-2xl font-bold">VS</span>
-
-            <div className="flex flex-col items-center">
-              <span className="text-sm text-gray-400">{match.player2Name}</span>
-              <div className="mt-1 flex gap-2">
-                {colClasses.map((cls, i) => (
-                  <ClassIcon key={i} name={cls} size={32} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {match.status === 'banning' && (
-          <div className="mb-6 text-center">
-            <p className="text-xl">
-              {isMyTurn() ? (
-                <span className="font-bold text-green-400">C&apos;est ton tour de bannir !</span>
-              ) : (
-                <span className="text-gray-400">En attente de {getOpponentName()}...</span>
-              )}
-            </p>
-            <p className="mt-2 text-sm text-gray-400">
-              Ban {Number(match.currentBanTurn ?? 0) + 1} / {match.banOrder?.length || 4}
-            </p>
-          </div>
-        )}
-
-        {match.status === 'finished' && (
-          <div className="mb-6 text-center">
-            <p className="text-xl font-bold text-green-400">Phase de ban terminée</p>
-            <p className="mt-2 text-sm text-gray-400">
-              Les cases rouges sont bannies, les vertes restent jouables.
-            </p>
-          </div>
-        )}
+    <main className="min-h-screen bg-slate-900 px-4 py-8 text-white">
+      <div className="mx-auto max-w-6xl">
+        <h1 className="mb-2 text-3xl font-bold">Strike / Ban Phase</h1>
+        <p className="mb-6 text-sm text-slate-300">Match ID : {matchId}</p>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-500/40 bg-red-950/30 p-3 text-center text-red-300">
+          <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">
             {error}
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-xl bg-gray-800 p-4">
-          <table className="w-full border-collapse text-center">
-            <thead>
-              <tr>
-                <th className="p-3"></th>
-                {colClasses.map((cls, colIndex) => (
-                  <th key={colIndex} className="p-3">
-                    <div className="flex flex-col items-center gap-2">
-                      <ClassIcon name={cls} size={40} />
-                      <span className="text-xs">{cls}</span>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rowClasses.map((rowCls, rowIndex) => (
-                <tr key={rowIndex}>
-                  <th className="p-3">
-                    <div className="flex flex-col items-center gap-2">
-                      <ClassIcon name={rowCls} size={40} />
-                      <span className="text-xs">{rowCls}</span>
-                    </div>
-                  </th>
+        {match.status === 'waiting' && playerNum === '2' && (
+          <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
+            <h2 className="mb-4 text-xl font-semibold">Rejoindre le match</h2>
 
-                  {colClasses.map((colCls, colIndex) => {
-                    const banned = isBannedCell(rowIndex, colIndex);
-                    const clickable = canBanCell(rowIndex, colIndex);
+            <form onSubmit={joinMatch} className="space-y-5">
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Pseudo</label>
+                <input
+                  name="player2Name"
+                  type="text"
+                  className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-white outline-none"
+                  placeholder="Ton pseudo"
+                  required
+                />
+              </div>
 
+              <div>
+                <p className="mb-3 text-sm text-slate-300">
+                  Choisis exactement 3 classes
+                </p>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {allClasses.map((className) => {
+                    const selected = selectedClasses.includes(className);
                     return (
-                      <td key={colIndex} className="p-2">
-                        <button
-                          onClick={() => clickable && banMatchup(rowIndex, colIndex)}
-                          disabled={!clickable}
-                          className={`w-full rounded-lg border p-4 transition ${
-                            banned
-                              ? 'border-red-500 bg-red-700 text-white'
-                              : clickable
-                              ? 'border-green-400 bg-green-700 hover:bg-green-600'
-                              : 'border-green-900 bg-green-800 text-white'
-                          } ${!clickable ? 'cursor-not-allowed opacity-90' : ''}`}
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="text-sm font-semibold">
-                              {rowCls} vs {colCls}
-                            </div>
-                            <div className="text-xs">
-                              {banned ? 'Banni' : 'Jouable'}
-                            </div>
-                          </div>
-                        </button>
-                      </td>
+                      <button
+                        key={className}
+                        type="button"
+                        onClick={() => toggleClass(className)}
+                        className={`rounded-lg border px-4 py-3 text-left transition ${
+                          selected
+                            ? 'border-orange-400 bg-orange-500/20 text-orange-200'
+                            : 'border-slate-600 bg-slate-900 text-slate-200 hover:bg-slate-800'
+                        }`}
+                      >
+                        {className}
+                      </button>
                     );
                   })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {match.status === 'finished' && Array.isArray(match.matchOrder) && (
-          <div className="mt-8 rounded-xl bg-gray-800 p-6">
-            <h2 className="mb-4 text-xl font-bold text-orange-400">
-              Ordre aléatoire des 5 affrontements
-            </h2>
-            <div className="space-y-3">
-              {match.matchOrder.map((m, index) => (
-                <div
-                  key={`${m.row}-${m.col}-${index}`}
-                  className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900 px-4 py-3"
-                >
-                  <span className="font-semibold text-gray-300">Match {index + 1}</span>
-                  <span className="text-white">
-                    {m.player1Class} vs {m.player2Class}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="rounded-lg bg-orange-500 px-5 py-3 font-semibold text-slate-950 hover:bg-orange-400"
+              >
+                Rejoindre
+              </button>
+            </form>
+          </section>
+        )}
+
+        {match.status === 'waiting' && playerNum !== '2' && (
+          <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
+            <h2 className="mb-2 text-xl font-semibold">En attente du joueur 2</h2>
+            <p className="text-slate-300">
+              Partage ce lien au second joueur pour qu’il rejoigne le match.
+            </p>
+          </section>
+        )}
+
+        {match.status !== 'waiting' && (
+          <>
+            <section className="mb-8 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-700 bg-slate-800 p-5">
+                <div className="mb-1 text-xs uppercase tracking-wide text-orange-300">
+                  Joueur A
+                </div>
+                <div className="text-xl font-bold text-orange-400">{rowPlayerName}</div>
+                <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                  {rowClasses.map((c, i) => (
+                    <li key={i} className="rounded-lg bg-slate-900 px-3 py-2">
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-slate-700 bg-slate-800 p-5">
+                <div className="mb-1 text-xs uppercase tracking-wide text-blue-300">
+                  Joueur B
+                </div>
+                <div className="text-xl font-bold text-blue-400">{colPlayerName}</div>
+                <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                  {colClasses.map((c, i) => (
+                    <li key={i} className="rounded-lg bg-slate-900 px-3 py-2">
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+
+            {match.status === 'banning' && (
+              <section className="mb-6 rounded-2xl border border-slate-700 bg-slate-800 p-5">
+                <div className="text-sm text-slate-300">
+                  Tour actuel :
+                  <span className="ml-2 font-semibold text-white">
+                    Joueur {getCurrentTurnLetter()}
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="mt-2 text-sm">
+                  {isMyTurn() ? (
+                    <span className="text-emerald-300">C’est à toi de ban un affrontement.</span>
+                  ) : (
+                    <span className="text-slate-300">En attente de l’autre joueur.</span>
+                  )}
+                </div>
+              </section>
+            )}
+
+            <section className="mb-8 overflow-x-auto rounded-2xl border border-slate-700 bg-slate-800 p-4">
+              <table className="min-w-[720px] border-separate border-spacing-2">
+                <thead>
+                  <tr>
+                    <th className="p-0 align-top">
+                      <div className="relative h-28 w-44 min-w-[11rem] overflow-hidden rounded-xl border border-slate-600 bg-slate-900">
+                        <div className="absolute inset-0 bg-[linear-gradient(to_top_right,transparent_49.4%,rgba(148,163,184,0.9)_50%,transparent_50.6%)]" />
+                        <div className="absolute bottom-3 left-3">
+                          <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                            Lignes
+                          </div>
+                          <div className="text-sm font-bold text-orange-400">Joueur A</div>
+                          <div className="text-xs text-white">{rowPlayerName}</div>
+                        </div>
+                        <div className="absolute right-3 top-3 text-right">
+                          <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                            Colonnes
+                          </div>
+                          <div className="text-sm font-bold text-blue-400">Joueur B</div>
+                          <div className="text-xs text-white">{colPlayerName}</div>
+                        </div>
+                      </div>
+                    </th>
+
+                    {colClasses.map((className, colIndex) => (
+                      <th key={colIndex} className="min-w-[160px]">
+                        <div className="rounded-xl border border-slate-600 bg-slate-900 px-4 py-4 text-center">
+                          <div className="text-xs uppercase tracking-wide text-blue-300">
+                            B{colIndex + 1}
+                          </div>
+                          <div className="mt-1 font-semibold text-white">{className}</div>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {rowClasses.map((rowClass, rowIndex) => (
+                    <tr key={rowIndex}>
+                      <th className="min-w-[160px]">
+                        <div className="rounded-xl border border-slate-600 bg-slate-900 px-4 py-4 text-left">
+                          <div className="text-xs uppercase tracking-wide text-orange-300">
+                            A{rowIndex + 1}
+                          </div>
+                          <div className="mt-1 font-semibold text-white">{rowClass}</div>
+                        </div>
+                      </th>
+
+                      {colClasses.map((_, colIndex) => {
+                        const banned = isCellBanned(rowIndex, colIndex);
+                        const banOwner = getBanOwner(rowIndex, colIndex);
+                        const orderIndex = getMatchOrderIndex(rowIndex, colIndex);
+                        const clickable = canBanCell(rowIndex, colIndex);
+
+                        return (
+                          <td key={`${rowIndex}-${colIndex}`}>
+                            <button
+                              type="button"
+                              onClick={() => banMatchup(rowIndex, colIndex)}
+                              disabled={!clickable}
+                              className={`flex h-28 w-full min-w-[160px] items-center justify-center rounded-xl border px-3 py-3 text-center transition ${
+                                banned
+                                  ? 'cursor-not-allowed border-red-500/50 bg-red-500/15 text-red-200'
+                                  : orderIndex
+                                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                                  : clickable
+                                  ? 'border-orange-400/60 bg-orange-500/10 text-white hover:bg-orange-500/20'
+                                  : 'border-slate-600 bg-slate-900 text-slate-300'
+                              }`}
+                            >
+                              <div>
+                                {banned ? (
+                                  <>
+                                    <div className="text-sm font-bold">Banni</div>
+                                    <div className="mt-1 text-xs text-slate-300">
+                                      par joueur {banOwner}
+                                    </div>
+                                  </>
+                                ) : orderIndex ? (
+                                  <>
+                                    <div className="text-xs uppercase tracking-wide text-emerald-300">
+                                      Match {orderIndex}
+                                    </div>
+                                    <div className="mt-1 text-sm font-semibold text-white">
+                                      {rowClass} vs {colClasses[colIndex]}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-xs uppercase tracking-wide text-slate-400">
+                                      Affrontement
+                                    </div>
+                                    <div className="mt-1 text-sm font-semibold text-white">
+                                      {rowClass} vs {colClasses[colIndex]}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            {match.status === 'finished' && (
+              <section className="rounded-2xl border border-slate-700 bg-slate-800 p-5">
+                <h2 className="mb-4 text-2xl font-bold text-orange-400">
+                  Ordre aléatoire des {match.matchOrder?.length || 0} affrontements
+                </h2>
+
+                <div className="space-y-3">
+                  {(match.matchOrder || []).map((m, index) => (
+                    <div
+                      key={`${m.row}-${m.col}-${index}`}
+                      className="rounded-xl border border-slate-600 bg-slate-900 px-4 py-4"
+                    >
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div className="font-bold text-slate-100">Match {index + 1}</div>
+                        <div className="text-slate-200">
+                          {(m.playerAClass || rowClasses[m.row] || 'Classe inconnue')} vs{' '}
+                          {(m.playerBClass || colClasses[m.col] || 'Classe inconnue')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
-    </div>
+    </main>
   );
 }
