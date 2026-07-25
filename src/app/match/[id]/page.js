@@ -1,7 +1,82 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+
+const CLASS_ICONS = {
+  'Death Knight': '/classes/deathknight.png',
+  'Demon Hunter': '/classes/demonhunter.png',
+  Druid: '/classes/druid.png',
+  Hunter: '/classes/hunter.png',
+  Mage: '/classes/mage.png',
+  Paladin: '/classes/paladin.png',
+  Priest: '/classes/priest.png',
+  Rogue: '/classes/rogue.png',
+  Shaman: '/classes/shaman.png',
+  Warlock: '/classes/warlock.png',
+  Warrior: '/classes/warrior.png',
+};
+
+function ClassBadge({
+  classNameValue,
+  selected = false,
+  onClick = null,
+  compact = false,
+  centered = false,
+}) {
+  const iconSrc = CLASS_ICONS[classNameValue];
+  const isButton = typeof onClick === 'function';
+
+  const baseClasses = compact
+    ? 'gap-2 px-3 py-2 text-sm'
+    : 'gap-3 px-4 py-3 text-sm';
+
+  const alignClasses = centered ? 'justify-center text-center' : 'justify-start text-left';
+
+  const stateClasses = selected
+    ? 'border-orange-400 bg-orange-500/20 text-orange-200'
+    : 'border-slate-600 bg-slate-900 text-slate-200 hover:bg-slate-800';
+
+  const content = (
+    <>
+      <span className={`flex items-center ${compact ? 'h-6 w-6' : 'h-7 w-7'} shrink-0 justify-center`}>
+        {iconSrc ? (
+          <Image
+            src={iconSrc}
+            alt={classNameValue}
+            width={compact ? 24 : 28}
+            height={compact ? 24 : 28}
+            className="h-auto w-auto object-contain"
+          />
+        ) : (
+          <span className="text-xs text-slate-400">?</span>
+        )}
+      </span>
+      <span className="leading-tight">{classNameValue}</span>
+    </>
+  );
+
+  if (isButton) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex w-full items-center rounded-lg border transition ${baseClasses} ${alignClasses} ${stateClasses}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center rounded-lg border border-slate-600 bg-slate-900 text-slate-100 ${baseClasses} ${alignClasses}`}
+    >
+      {content}
+    </div>
+  );
+}
 
 export default function MatchPage() {
   const params = useParams();
@@ -276,18 +351,12 @@ export default function MatchPage() {
                   {allClasses.map((className) => {
                     const selected = selectedClasses.includes(className);
                     return (
-                      <button
+                      <ClassBadge
                         key={className}
-                        type="button"
+                        classNameValue={className}
+                        selected={selected}
                         onClick={() => toggleClass(className)}
-                        className={`rounded-lg border px-4 py-3 text-left transition ${
-                          selected
-                            ? 'border-orange-400 bg-orange-500/20 text-orange-200'
-                            : 'border-slate-600 bg-slate-900 text-slate-200 hover:bg-slate-800'
-                        }`}
-                      >
-                        {className}
-                      </button>
+                      />
                     );
                   })}
                 </div>
@@ -335,11 +404,11 @@ export default function MatchPage() {
                 <div className="mb-1 text-xs uppercase tracking-wide text-orange-300">
                   Joueur A
                 </div>
-                <div className="text-xl font-bold text-orange-400">{rowPlayerName}</div>
-                <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                <div className="mb-3 text-xl font-bold text-orange-400">{rowPlayerName}</div>
+                <ul className="space-y-2">
                   {rowClasses.map((c, i) => (
-                    <li key={i} className="rounded-lg bg-slate-900 px-3 py-2">
-                      {c}
+                    <li key={i}>
+                      <ClassBadge classNameValue={c} compact />
                     </li>
                   ))}
                 </ul>
@@ -349,11 +418,11 @@ export default function MatchPage() {
                 <div className="mb-1 text-xs uppercase tracking-wide text-blue-300">
                   Joueur B
                 </div>
-                <div className="text-xl font-bold text-blue-400">{colPlayerName}</div>
-                <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                <div className="mb-3 text-xl font-bold text-blue-400">{colPlayerName}</div>
+                <ul className="space-y-2">
                   {colClasses.map((c, i) => (
-                    <li key={i} className="rounded-lg bg-slate-900 px-3 py-2">
-                      {c}
+                    <li key={i}>
+                      <ClassBadge classNameValue={c} compact />
                     </li>
                   ))}
                 </ul>
@@ -383,32 +452,37 @@ export default function MatchPage() {
                 <thead>
                   <tr>
                     <th className="p-0 align-top">
-                      <div className="relative h-28 w-44 min-w-[11rem] overflow-hidden rounded-xl border border-slate-600 bg-slate-900">
+                      <div className="relative h-24 w-40 min-w-[10rem] overflow-hidden rounded-xl border border-slate-600 bg-slate-900">
                         <div className="absolute inset-0 bg-[linear-gradient(to_top_right,transparent_49.4%,rgba(148,163,184,0.9)_50%,transparent_50.6%)]" />
-                        <div className="absolute bottom-3 left-3">
-                          <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        <div className="absolute bottom-2 left-2">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400">
                             Lignes
                           </div>
                           <div className="text-sm font-bold text-orange-400">Joueur A</div>
-                          <div className="text-xs text-white">{rowPlayerName}</div>
+                          <div className="max-w-[78px] truncate text-[11px] text-white">
+                            {rowPlayerName}
+                          </div>
                         </div>
-                        <div className="absolute right-3 top-3 text-right">
-                          <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        <div className="absolute right-2 top-2 text-right">
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400">
                             Colonnes
                           </div>
                           <div className="text-sm font-bold text-blue-400">Joueur B</div>
-                          <div className="text-xs text-white">{colPlayerName}</div>
+                          <div className="max-w-[78px] truncate text-[11px] text-white">
+                            {colPlayerName}
+                          </div>
                         </div>
                       </div>
                     </th>
 
                     {colClasses.map((className, colIndex) => (
-                      <th key={colIndex} className="min-w-[160px]">
-                        <div className="rounded-xl border border-slate-600 bg-slate-900 px-4 py-4 text-center">
-                          <div className="text-xs uppercase tracking-wide text-blue-300">
-                            B{colIndex + 1}
-                          </div>
-                          <div className="mt-1 font-semibold text-white">{className}</div>
+                      <th key={colIndex} className="min-w-[150px]">
+                        <div className="rounded-xl border border-slate-600 bg-slate-900 p-2">
+                          <ClassBadge
+                            classNameValue={className}
+                            compact
+                            centered
+                          />
                         </div>
                       </th>
                     ))}
@@ -418,12 +492,12 @@ export default function MatchPage() {
                 <tbody>
                   {rowClasses.map((rowClass, rowIndex) => (
                     <tr key={rowIndex}>
-                      <th className="min-w-[160px]">
-                        <div className="rounded-xl border border-slate-600 bg-slate-900 px-4 py-4 text-left">
-                          <div className="text-xs uppercase tracking-wide text-orange-300">
-                            A{rowIndex + 1}
-                          </div>
-                          <div className="mt-1 font-semibold text-white">{rowClass}</div>
+                      <th className="min-w-[150px]">
+                        <div className="rounded-xl border border-slate-600 bg-slate-900 p-2">
+                          <ClassBadge
+                            classNameValue={rowClass}
+                            compact
+                          />
                         </div>
                       </th>
 
@@ -439,37 +513,26 @@ export default function MatchPage() {
                               type="button"
                               onClick={() => banMatchup(rowIndex, colIndex)}
                               disabled={!clickable}
-                              className={`flex h-28 w-full min-w-[160px] items-center justify-center rounded-xl border px-3 py-3 text-center transition ${
+                              className={`flex h-24 w-full min-w-[150px] items-center justify-center rounded-xl border px-3 py-3 text-center transition ${
                                 banned
-                                  ? 'cursor-not-allowed border-red-500/50 bg-red-500/15 text-red-200'
-                                  : orderIndex
-                                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                                  ? 'cursor-not-allowed border-red-500/70 bg-red-500/20 text-red-100'
                                   : clickable
-                                  ? 'border-orange-400/60 bg-orange-500/10 text-white hover:bg-orange-500/20'
-                                  : 'border-slate-600 bg-slate-900 text-slate-300'
+                                  ? 'border-emerald-500/70 bg-emerald-500/20 text-emerald-50 hover:bg-emerald-500/30'
+                                  : 'border-emerald-500/50 bg-emerald-500/15 text-emerald-50'
                               }`}
                             >
                               <div>
                                 {banned ? (
                                   <>
                                     <div className="text-sm font-bold">Banni</div>
-                                    <div className="mt-1 text-xs text-slate-300">
+                                    <div className="mt-1 text-xs text-red-100/80">
                                       par joueur {banOwner}
-                                    </div>
-                                  </>
-                                ) : orderIndex ? (
-                                  <>
-                                    <div className="text-xs uppercase tracking-wide text-emerald-300">
-                                      Match {orderIndex}
-                                    </div>
-                                    <div className="mt-1 text-sm font-semibold text-white">
-                                      {rowClass} vs {colClass}
                                     </div>
                                   </>
                                 ) : (
                                   <>
-                                    <div className="text-xs uppercase tracking-wide text-slate-400">
-                                      Affrontement
+                                    <div className="text-xs uppercase tracking-wide text-emerald-100/80">
+                                      {orderIndex ? `Match ${orderIndex}` : 'Disponible'}
                                     </div>
                                     <div className="mt-1 text-sm font-semibold text-white">
                                       {rowClass} vs {colClass}
@@ -503,8 +566,10 @@ export default function MatchPage() {
                         <div className="font-bold text-slate-100">
                           Match {m.displayOrder}
                         </div>
-                        <div className="text-slate-200">
-                          {m.displayAClass} vs {m.displayBClass}
+                        <div className="flex items-center gap-2 text-slate-200">
+                          <ClassBadge classNameValue={m.displayAClass} compact />
+                          <span className="text-slate-400">vs</span>
+                          <ClassBadge classNameValue={m.displayBClass} compact />
                         </div>
                       </div>
                     </div>
