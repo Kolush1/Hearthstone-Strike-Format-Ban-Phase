@@ -14,6 +14,7 @@ export default function MatchPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedClasses, setSelectedClasses] = useState([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!matchId) return;
@@ -38,6 +39,16 @@ export default function MatchPage() {
     } catch (err) {
       setError('Erreur réseau');
       setLoading(false);
+    }
+  }
+
+  async function copyInviteLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setError('Impossible de copier le lien');
     }
   }
 
@@ -272,9 +283,23 @@ export default function MatchPage() {
         {match.status === 'waiting' && playerNum !== '2' && (
           <section className="mb-8 rounded-2xl border border-slate-700 bg-slate-800 p-6">
             <h2 className="mb-2 text-xl font-semibold">En attente du joueur 2</h2>
-            <p className="text-slate-300">
+            <p className="mb-4 text-slate-300">
               Partage ce lien au second joueur pour qu’il rejoigne le match.
             </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={copyInviteLink}
+                className="inline-flex w-fit items-center rounded-lg bg-orange-500 px-4 py-2 font-semibold text-slate-950 transition hover:bg-orange-400"
+              >
+                {copied ? 'Lien copié !' : 'Copier le lien'}
+              </button>
+
+              <span className="text-sm text-slate-400">
+                {window?.location?.href || ''}
+              </span>
+            </div>
           </section>
         )}
 
@@ -377,7 +402,7 @@ export default function MatchPage() {
                         </div>
                       </th>
 
-                      {colClasses.map((_, colIndex) => {
+                      {colClasses.map((colClass, colIndex) => {
                         const banned = isCellBanned(rowIndex, colIndex);
                         const banOwner = getBanOwner(rowIndex, colIndex);
                         const orderIndex = getMatchOrderIndex(rowIndex, colIndex);
@@ -413,7 +438,7 @@ export default function MatchPage() {
                                       Match {orderIndex}
                                     </div>
                                     <div className="mt-1 text-sm font-semibold text-white">
-                                      {rowClass} vs {colClasses[colIndex]}
+                                      {rowClass} vs {colClass}
                                     </div>
                                   </>
                                 ) : (
@@ -422,7 +447,7 @@ export default function MatchPage() {
                                       Affrontement
                                     </div>
                                     <div className="mt-1 text-sm font-semibold text-white">
-                                      {rowClass} vs {colClasses[colIndex]}
+                                      {rowClass} vs {colClass}
                                     </div>
                                   </>
                                 )}
