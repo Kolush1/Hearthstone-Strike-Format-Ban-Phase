@@ -105,7 +105,7 @@ Web application designed to run a Strike-format ban phase between two Hearthston
 
 ## Strike Format
 
-Created in 2016 by RDU with help from Gaara, the Strike format (originally called "Destiny") was designed to make it possible to play a BO5 with 3 decks. [web:970][web:968]
+Created in 2016 by RDU with help from Gaara, the Strike format (originally called "Destiny") was designed to make it possible to play a BO5 with 3 decks.
 
 Each player selects **exactly 3 classes**.
 
